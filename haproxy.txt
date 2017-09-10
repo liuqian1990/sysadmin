@@ -1,0 +1,106 @@
+haproxy 使用
+
+global
+    ...
+    stats socket /var/lib/haproxy/stats
+    stats timeout 2m
+	
+
+[root@localhost ~]# socat /var/lib/haproxy/stats readline
+help
+Unknown command. Please enter one of the following commands only :
+  clear counters : clear max statistics counters (add 'all' for all counters)
+  clear table    : remove an entry from a table
+  help           : this message
+  prompt         : toggle interactive mode with prompt
+  quit           : disconnect
+  show info      : report information about the running process
+  show pools     : report information about the memory pools usage
+  show stat      : report counters for each proxy and server
+  show errors    : report last request and response errors for each proxy
+  show sess [id] : report the list of current sessions or dump this session
+  show table [id]: report table usage stats or dump this table's contents
+  get weight     : report a server's current weight
+  set weight     : change a server's weight
+  set server     : change a server's state or weight
+  set table [id] : update or create a table entry's data
+  set timeout    : change a timeout setting
+  set maxconn    : change a maxconn setting
+  set rate-limit : change a rate limiting value
+  disable        : put a server or frontend in maintenance mode
+  enable         : re-enable a server or frontend which is in maintenance mode
+  shutdown       : kill a session or a frontend (eg:to release listening ports)
+  show acl [id]  : report available acls or dump an acl's contents
+  get acl        : reports the patterns matching a sample for an ACL
+  add acl        : add acl entry
+  del acl        : delete acl entry
+  clear acl <id> : clear the content of this acl
+  show map [id]  : report available maps or dump a map's contents
+  get map        : reports the keys and values matching a sample for a map
+  set map        : modify map entry
+  add map        : add map entry
+  del map        : delete map entry
+  clear map <id> : clear the content of this map
+  set ssl <stmt> : set statement for ssl
+  
+[root@localhost ~]# echo "show info;show stat;show table" | socat /var/lib/haproxy/stats stdio
+Name: HAProxy
+Version: 1.5.18
+Release_date: 2016/05/10
+Nbproc: 1
+Process_num: 1
+Pid: 2085
+Uptime: 0d 0h11m20s
+Uptime_sec: 680
+Memmax_MB: 0
+Ulimit-n: 8036
+Maxsock: 8036
+Maxconn: 4000
+Hard_maxconn: 4000
+CurrConns: 0
+CumConns: 2
+CumReq: 2
+MaxSslConns: 0
+CurrSslConns: 0
+CumSslConns: 0
+Maxpipes: 0
+PipesUsed: 0
+PipesFree: 0
+ConnRate: 0
+ConnRateLimit: 0
+MaxConnRate: 0
+SessRate: 0
+SessRateLimit: 0
+MaxSessRate: 0
+SslRate: 0
+SslRateLimit: 0
+MaxSslRate: 0
+SslFrontendKeyRate: 0
+SslFrontendMaxKeyRate: 0
+SslFrontendSessionReuse_pct: 0
+SslBackendKeyRate: 0
+SslBackendMaxKeyRate: 0
+SslCacheLookups: 0
+SslCacheMisses: 0
+CompressBpsIn: 0
+CompressBpsOut: 0
+CompressBpsRateLim: 0
+ZlibMemUsage: 0
+MaxZlibMemUsage: 0
+Tasks: 11
+Run_queue: 1
+Idle_pct: 100
+node: localhost.localdomain
+description: 
+
+# pxname,svname,qcur,qmax,scur,smax,slim,stot,bin,bout,dreq,dresp,ereq,econ,eresp,wretr,wredis,status,weight,act,bck,chkfail,chkdown,lastchg,downtime,qlimit,pid,iid,sid,throttle,lbtot,tracked,type,rate,rate_lim,rate_max,check_status,check_code,check_duration,hrsp_1xx,hrsp_2xx,hrsp_3xx,hrsp_4xx,hrsp_5xx,hrsp_other,hanafail,req_rate,req_rate_max,req_tot,cli_abrt,srv_abrt,comp_in,comp_out,comp_byp,comp_rsp,lastsess,last_chk,last_agt,qtime,ctime,rtime,ttime,
+main,FRONTEND,,,0,0,3000,0,0,0,0,0,0,,,,,OPEN,,,,,,,,,1,2,0,,,,0,0,0,0,,,,0,0,0,0,0,0,,0,0,0,,,0,0,0,0,,,,,,,,
+static,static,0,0,0,0,,0,0,0,,0,,0,0,0,0,DOWN,1,1,0,1,1,680,680,,1,3,1,,0,,2,0,,0,L4CON,,0,0,0,0,0,0,0,0,,,,0,0,,,,,-1,Connection refused,,0,0,0,0,
+static,BACKEND,0,0,0,0,300,0,0,0,0,0,,0,0,0,0,DOWN,0,0,0,,1,680,680,,1,3,0,,0,,1,0,,0,,,,0,0,0,0,0,0,,,,,0,0,0,0,0,0,-1,,,0,0,0,0,
+app,app1,0,0,0,0,,0,0,0,,0,,0,0,0,0,DOWN,1,1,0,1,1,679,679,,1,4,1,,0,,2,0,,0,L4CON,,0,0,0,0,0,0,0,0,,,,0,0,,,,,-1,Connection refused,,0,0,0,0,
+app,app2,0,0,0,0,,0,0,0,,0,,0,0,0,0,DOWN,1,1,0,1,1,679,679,,1,4,2,,0,,2,0,,0,L4CON,,0,0,0,0,0,0,0,0,,,,0,0,,,,,-1,General socket error (Permission denied),,0,0,0,0,
+app,app3,0,0,0,0,,0,0,0,,0,,0,0,0,0,DOWN,1,1,0,1,1,678,678,,1,4,3,,0,,2,0,,0,L4CON,,0,0,0,0,0,0,0,0,,,,0,0,,,,,-1,Connection refused,,0,0,0,0,
+app,app4,0,0,0,0,,0,0,0,,0,,0,0,0,0,DOWN,1,1,0,1,1,678,678,,1,4,4,,0,,2,0,,0,L4CON,,0,0,0,0,0,0,0,0,,,,0,0,,,,,-1,Connection refused,,0,0,0,0,
+app,BACKEND,0,0,0,0,300,0,0,0,0,0,,0,0,0,0,DOWN,0,0,0,,1,678,678,,1,4,0,,0,,1,0,,0,,,,0,0,0,0,0,0,,,,,0,0,0,0,0,0,-1,,,0,0,0,0,
+
+
