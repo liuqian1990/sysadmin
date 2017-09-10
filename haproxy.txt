@@ -1,11 +1,52 @@
 haproxy 使用
+https://engineeringblog.yelp.com/2015/04/true-zero-downtime-haproxy-reloads.html
+https://engineeringblog.yelp.com/2017/05/taking-zero-downtime-load-balancing-even-further.html
+http://cbonte.github.io/haproxy-dconv/1.6/management.html#show
+
 
 global
     ...
     stats socket /var/lib/haproxy/stats
     stats timeout 2m
 	
+[root@localhost tmp]# echo "help" | socat stdio /var/lib/haproxy/stats 
+Unknown command. Please enter one of the following commands only :
+  clear counters : clear max statistics counters (add 'all' for all counters)
+  clear table    : remove an entry from a table
+  help           : this message
+  prompt         : toggle interactive mode with prompt
+  quit           : disconnect
+  show info      : report information about the running process
+  show pools     : report information about the memory pools usage
+  show stat      : report counters for each proxy and server
+  show errors    : report last request and response errors for each proxy
+  show sess [id] : report the list of current sessions or dump this session
+  show table [id]: report table usage stats or dump this table's contents
+  get weight     : report a server's current weight
+  set weight     : change a server's weight
+  set server     : change a server's state or weight
+  set table [id] : update or create a table entry's data
+  set timeout    : change a timeout setting
+  set maxconn    : change a maxconn setting
+  set rate-limit : change a rate limiting value
+  disable        : put a server or frontend in maintenance mode
+  enable         : re-enable a server or frontend which is in maintenance mode
+  shutdown       : kill a session or a frontend (eg:to release listening ports)
+  show acl [id]  : report available acls or dump an acl's contents
+  get acl        : reports the patterns matching a sample for an ACL
+  add acl        : add acl entry
+  del acl        : delete acl entry
+  clear acl <id> : clear the content of this acl
+  show map [id]  : report available maps or dump a map's contents
+  get map        : reports the keys and values matching a sample for a map
+  set map        : modify map entry
+  add map        : add map entry
+  del map        : delete map entry
+  clear map <id> : clear the content of this map
+  set ssl <stmt> : set statement for ssl
 
+	
+	
 [root@localhost ~]# socat /var/lib/haproxy/stats readline
 help
 Unknown command. Please enter one of the following commands only :
@@ -102,5 +143,8 @@ app,app2,0,0,0,0,,0,0,0,,0,,0,0,0,0,DOWN,1,1,0,1,1,679,679,,1,4,2,,0,,2,0,,0,L4C
 app,app3,0,0,0,0,,0,0,0,,0,,0,0,0,0,DOWN,1,1,0,1,1,678,678,,1,4,3,,0,,2,0,,0,L4CON,,0,0,0,0,0,0,0,0,,,,0,0,,,,,-1,Connection refused,,0,0,0,0,
 app,app4,0,0,0,0,,0,0,0,,0,,0,0,0,0,DOWN,1,1,0,1,1,678,678,,1,4,4,,0,,2,0,,0,L4CON,,0,0,0,0,0,0,0,0,,,,0,0,,,,,-1,Connection refused,,0,0,0,0,
 app,BACKEND,0,0,0,0,300,0,0,0,0,0,,0,0,0,0,DOWN,0,0,0,,1,678,678,,1,4,0,,0,,1,0,,0,,,,0,0,0,0,0,0,,,,,0,0,0,0,0,0,-1,,,0,0,0,0,
+
+##### 重启
+haproxy -D -p /run/haproxy.pid -f /etc/haproxy/haproxy.cfg -sf `cat /run/haproxy.pid`
 
 
