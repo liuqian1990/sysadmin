@@ -159,6 +159,9 @@ Dumping pools usage. Use SIGQUIT to flush them.
 Total: 10 pools, 35888 bytes allocated, 35888 used.
 
 
+##### 配置文件难
+ haproxy -c -V -f /etc/haproxy/haproxy.cfg
+
 ##### 重启
 haproxy -D -p /run/haproxy.pid -f /etc/haproxy/haproxy.cfg -sf `cat /run/haproxy.pid`
 
