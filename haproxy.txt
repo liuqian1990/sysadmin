@@ -144,6 +144,21 @@ app,app3,0,0,0,0,,0,0,0,,0,,0,0,0,0,DOWN,1,1,0,1,1,678,678,,1,4,3,,0,,2,0,,0,L4C
 app,app4,0,0,0,0,,0,0,0,,0,,0,0,0,0,DOWN,1,1,0,1,1,678,678,,1,4,4,,0,,2,0,,0,L4CON,,0,0,0,0,0,0,0,0,,,,0,0,,,,,-1,Connection refused,,0,0,0,0,
 app,BACKEND,0,0,0,0,300,0,0,0,0,0,,0,0,0,0,DOWN,0,0,0,,1,678,678,,1,4,0,,0,,1,0,,0,,,,0,0,0,0,0,0,,,,,0,0,0,0,0,0,-1,,,0,0,0,0,
 
+[root@localhost tmp]# echo "show pools" | socat stdio /var/lib/haproxy/stats 
+Dumping pools usage. Use SIGQUIT to flush them.
+  - Pool pipe (32 bytes) : 5 allocated (160 bytes), 5 used, 3 users [SHARED]
+  - Pool capture (64 bytes) : 0 allocated (0 bytes), 0 used, 1 users [SHARED]
+  - Pool channel (80 bytes) : 2 allocated (160 bytes), 2 used, 1 users [SHARED]
+  - Pool task (112 bytes) : 11 allocated (1232 bytes), 11 used, 1 users [SHARED]
+  - Pool uniqueid (128 bytes) : 0 allocated (0 bytes), 0 used, 1 users [SHARED]
+  - Pool connection (320 bytes) : 2 allocated (640 bytes), 2 used, 1 users [SHARED]
+  - Pool hdr_idx (416 bytes) : 0 allocated (0 bytes), 0 used, 1 users [SHARED]
+  - Pool session (864 bytes) : 1 allocated (864 bytes), 1 used, 1 users [SHARED]
+  - Pool requri (1024 bytes) : 0 allocated (0 bytes), 0 used, 1 users [SHARED]
+  - Pool buffer (16416 bytes) : 2 allocated (32832 bytes), 2 used, 1 users [SHARED]
+Total: 10 pools, 35888 bytes allocated, 35888 used.
+
+
 ##### 重启
 haproxy -D -p /run/haproxy.pid -f /etc/haproxy/haproxy.cfg -sf `cat /run/haproxy.pid`
 
