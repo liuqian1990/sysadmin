@@ -13,6 +13,7 @@ https://blog.cloudflare.com/optimizing-the-linux-stack-for-mobile-web-per/
 https://www.haproxy.com/documentation/hapee/1-5r2/system/tunning/
 https://tonydeng.github.io/2015/05/25/linux-tcpip-tuning/
 http://jerrypeng.me/2014/12/08/dreadful-nf-conntrack-table-full-issue/
+http://jaseywang.me/2012/08/16/%E8%A7%A3%E5%86%B3-nf_conntrack-table-full-dropping-packet-%E7%9A%84%E5%87%A0%E7%A7%8D%E6%80%9D%E8%B7%AF/
 
 
 global
@@ -193,6 +194,16 @@ Sample fetch methods return data which can be of the following types :
   - IPv4 or IPv6 address
   - string
   - data block
+  
+
+  
+iptables -t raw -A PREROUTING -i lo -j NOTRACK
+iptables -t raw -A OUTPUT -o lo -j NOTRACK
+# 针对进入本机的包
+iptables -t raw -A PREROUTING -p tcp -m tcp --dport 8080 -j NOTRACK
+# 针对从本机出去的包
+iptables -t raw -A OUTPUT -p tcp -m tcp --dport 8080 -j NOTRACK
+iptables -A INPUT -m state --state UNTRACKED -j ACCEPT
   
 
 
