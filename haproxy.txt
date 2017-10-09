@@ -2,6 +2,16 @@ haproxy 使用
 https://engineeringblog.yelp.com/2015/04/true-zero-downtime-haproxy-reloads.html
 https://engineeringblog.yelp.com/2017/05/taking-zero-downtime-load-balancing-even-further.html
 http://cbonte.github.io/haproxy-dconv/1.6/management.html#show
+https://blog.codeship.com/performance-tuning-haproxy/
+https://medium.freecodecamp.org/load-testing-haproxy-part-1-f7d64500b75d
+https://medium.com/cagataygurturk/using-haproxy-in-multi-core-environments-68ee2d3ae39e
+
+
+tuning-haproxy
+https://www.kernel.org/doc/Documentation/networking/ip-sysctl.txt
+https://blog.cloudflare.com/optimizing-the-linux-stack-for-mobile-web-per/
+https://www.haproxy.com/documentation/hapee/1-5r2/system/tunning/
+https://tonydeng.github.io/2015/05/25/linux-tcpip-tuning/
 
 
 global
@@ -160,9 +170,29 @@ Total: 10 pools, 35888 bytes allocated, 35888 used.
 
 
 ##### 配置文件检测
- haproxy -c -V -f /etc/haproxy/haproxy.cfg
+haproxy -c -V -f /etc/haproxy/haproxy.cfg
 
 ##### 重启
 haproxy -D -p /run/haproxy.pid -f /etc/haproxy/haproxy.cfg -sf `cat /run/haproxy.pid`
+
+haproxy 性能调优
+1.On Linux,unloading the nf_conntrack and ip_conntrack modules
+2.interrupt/softirq 绑定固定CPU且与haproxy重合
+3.irq_balance  进程停止
+4.nbproc
+
+##### 
+ACL names must be formed from upper and lower case letters, digits, '-' (dash),
+'_' (underscore) , '.' (dot) and ':' (colon). ACL names are case-sensitive,
+which means that "my_acl" and "My_Acl" are two different ACLs.
+
+Sample fetch methods return data which can be of the following types :
+  - boolean
+  - integer (signed or unsigned)
+  - IPv4 or IPv6 address
+  - string
+  - data block
+  
+
 
 
