@@ -1,0 +1,187 @@
+原文地址 http://abcdxyzk.github.io/blog/2015/07/29/tools-haproxy_src1/
+
+目录
+1. 关键数据结构 session
+2. 相关初始化
+	2.1. 初始化处理 TCP 连接的方法
+	2.2. 初始化 listener
+	2.3. 绑定所有已注册协议上的 listeners
+	2.4. 启用所有已注册协议上的 listeners
+3. TCP 连接的处理流程
+	3.1. 接受新建连接
+	3.2. TCP 连接上的接收事件
+	3.3. TCP 连接上的发送事件
+	3.4. http 请求的处理
+	 
+1. 关键数据结构session
+   haproxy 负责处理请求的核心数据结构是 struct session,本文不对该数据结构进行分析
+从业务的处理的角度,简单介绍一下对session的理解:
+   1.1 haproxy每接收到client的一个连接,便会创建一个session结构
+   1.2 该结构一直伴随着连接的处理,直至连接被关闭,session才会被释放haproxy其他的数据结构
+   1.3 大多会通过引用的方式和session进行关联一个业务session上会存在两个TCP连接,一个是client到haproxy,一个是haproxy到后端server
+   1.4 一个session,通常还要对应一个task,haproxy最终用来做调度的是通过task
+   
+2. 相关初始化
+   在haproxy正式处理请求之前,会有一系列初始化动作.这里介绍和请求处理相关的一些初始化
+   
+   2.1 初始化处理TCP连接的方法
+       初始化处理TCP协议的相关数据结构,主要是和socket相关的方法的声明.详细见下面 proto_tcpv4 (proto_tcp.c)的初始化:
+	   static struct protocol proto_tcpv4 = {
+	   .name = "tcpv4",
+	   .sock_domain = AF_INET,
+	   .sock_type = SOCK_STREAM,
+	   .sock_prot = IPPROTO_TCP,
+	   .sock_family = AF_INET,
+	   .sock_addrlen = sizeof(struct sockaddr_in),
+	   .l3_addrlen = 32/8,
+	   .accept = &stream_sock_accept,
+	   .read = &stream_sock_read,
+	   .write = &stream_sock_write,
+	   .bind = tcp_bind_listener,
+	   .bind_all = tcp_bind_listeners,
+	   .unbind_all = unbind_all_listeners,
+	   .enable_all = enable_all_listeners,
+	   .listeners = LIST_HEAD_INIT(proto_tcpv4.listeners),
+	   .nb_listeners = 0,
+       };
+	 
+	2.2 初始化 listener
+	    listener,顾名思义,就是用于负责处理监听相关的逻辑
+		在haproxy解析bind配置的时候赋值给listener的proto成员.函数调用流程如下:
+		cfgparse.c
+	       -> cfg_parse_listen
+		      -> str2listener
+			    -> tcpv4_add_listener
+				   -> listener->proto = &proto_tcpv4;
+				   
+    由于这里初始化的是listener处理socket的一些方法.可以推断,haproxy接收client新建连接的入口函数应该是protocol结构体中的accpet方法.
+	对于tcpv4来说,就是stream_sock_accept()函数.该函数到1.5-dev19中改名为 listener_accept().这是后话,暂且不表.
+	
+	listener的其他初始化
+	cfgparse.c
+	-> check_config_validity
+		-> listener->accept = session_accept;
+    listener->frontend = curproxy; (解析frontend时,会执行赋值:curproxy->accept = frontend_accept）
+    listener->handler = process_session;
+	
+	整个haproxy配置文件解析完毕,listener也已初始化完毕.可以简单梳理一下几个accept方法的设计逻辑:
+	stream_sock_accept(): 负责接收新建TCP连接,并触发listener自己的accept方法session_accept()
+    session_accept(): 负责创建 session,并作session成员的初步初始化,并调用frontend的accept方法front_accetp()
+    frontend_accept(): 该函数主要负责session前端的TCP连接的初始化,包括socket设置,log设置,以及session部分成员的初始化
+	
+	2.3 绑定所有已注册协议上的 listeners
+	haproxy.c 
+	-> protocol_bind_all 
+		-> all registered protocol bind_all
+			-> tcp_bind_listeners (TCP)
+				-> tcp_bind_listener 
+					-> [ fdtab[fd].cb[DIR_RD].f = listener->proto->accept ]
+	该函数指针指向proto_tcpv4结构体的accept成员,即函数stream_sock_accept
+	
+	2.4 启用所有已注册协议上的listeners
+	把所有listeners的fd加到polling lists中 haproxy.c -> protocol_enable_all -> all registered protocol enable_all -> enable_all_listeners (TCP) -> enable_listener 
+	函数会将处于LI_LISTEN的 listener的状态修改为 LI_READY,并调用cur poller的set方法,比如使用sepoll,就会调用 __fd_set
+	
+	3. TCP 连接的处理流程
+	
+	3.1 接受新建连接
+	前面几个方面的分析,主要是为了搞清楚当请求到来时,处理过程中实际的函数调用关系.以下分析TCP建连过程
+	haproxy.c 
+	-> run_poll_loop 
+		-> cur_poller.poll 
+			-> __do_poll (如果配置使用的是sepoll,则调用ev_sepoll.c中的poll方法) 
+				-> fdtab[fd].cb[DIR_RD].f(fd) (TCP 协议的该函数指针指向 stream_sock_accept )
+					-> stream_sock_accept
+						-> 按照global.tune.maxaccept的设置尽量可能多执行系统调用accept,然后再调用 l->accept(),即listener的accept方法session_accept
+							-> session_accept
+							
+	
+	session_accept 主要完成以下功能							
+    调用pool_alloc2分配一个session结构
+    调用task_new分配一个新任务
+    将新分配的session加入全局sessions链表中
+    session和task的初始化,若干重要成员的初始化如下
+	     t->process = l->handler： 即t->process指向process_session
+	     t->context = s： 任务的上下文指向session
+	     s->listener = l： session的listener成员指向当前的listener
+	     s->si[] 的初始化,记录accept系统调用返回的cfd等
+	     初始化s->txn
+	     为s->req和s->rep分别分配内存,并作对应的初始化
+		      s->req = pool_alloc2(pool2_buffer)
+		      s->rep = pool_alloc2(pool2_buffer)
+		      从代码上来看,应该是各自独立分配 tune.bufsize + sizeof struct buffer 大小的内存
+	     新建连接cfd的一些初始化
+		      cfd 设置为非阻塞
+		      将cfd 加入fdtab[]中,并注册新建连接cfg的read和write 的方法
+		      fdtab[cfd].cb[DIR_RD].f = l->proto->read,设置cfd的read函数l->proto->read,对应TCP为stream_sock_read,读缓存指向s->req，
+		      fdtab[cfd].cb[DIR_WR].f = l->proto->write,设置cfd的write函数l->proto->write,对应TCP为stream_sock_write,写缓冲指向s->rep
+    p->accept执行proxy的accept方法即frontend_accept
+	    设置session结构体的log 成员
+	    根据配置的情况,分别设置新建连接套接字的选项,包括TCP_NODELAY/KEEPALIVE/LINGER/SNDBUF/RCVBUF 等等
+	    如果mode是http的话,将session的txn成员做相关的设置和初始化
+		
+		
+	3.2 TCP 连接上的接收事件
+	haproxy.c 
+	-> run_poll_loop 
+		-> cur_poller.poll 
+			-> __do_poll (如果配置使用的是sepoll,则调用ev_sepoll.c中的poll方法) 
+				-> fdtab[fd].cb[DIR_RD].f(fd) (该函数在建连阶段被初始化为四层协议的read方法,对于TCP协议,为stream_sock_read )
+					-> stream_sock_read
+	
+	stream_sock_read主要完成以下功能
+	
+	找到当前连接的读缓冲,即当前session的req buffer:
+	
+	struct buffer *b = si->ib
+	
+	根据配置,调用splice或者recv读取套接字上的数据,并填充到读缓冲中,即填充到从 b->r（初始位置应该就是 b->data）开始的内存中
+    如果读取到0字节,则意味着接收到对端的关闭请求,调用stream_sock_shutr进行处理
+	      读缓冲标记si->ib->flags的BF_SHUTR置位,清除当前fd的epoll读事件,不再从该fd读取
+	      如果写缓冲si->ob->flags的BF_SHUTW已经置位,说明应该是由本地首先发起的关闭连接动作
+		       将fd从fdset[]中清除,从epoll中移除fd,执行系统调用close(fd),fd.state置位FD_STCLOSE
+		       stream interface的状态修改si->state=SI_ST_DIS
+    唤醒任务task_wakeup,把当前任务加入到run queue中.随后检测runnable tasks时,就会处理该任务
+
+    3.3 TCP 连接上的发送事件
+	haproxy.c 
+    -> run_poll_loop 
+        -> cur_poller.poll 
+            -> __do_poll (如果配置使用的是sepoll,则调用ev_sepoll.c中的 poll 方法) 
+                -> fdtab[fd].cb[DIR_WR].f(fd) (该函数在建连阶段被初始化为四层协议的write方法,对于TCP协议,为stream_sock_write )
+                    -> stream_sock_write
+					
+	 stream_sock_write主要完成以下功能
+	 
+     找到当前连接的写缓冲,即当前session的 rep buffer:
+	 
+	 struct buffer *b = si->ob
+	 
+	 将待发送的数据调用send系统调用发送出去  
+     或者数据已经发送完毕,需要发送关闭连接的动作stream_sock_shutw-> 系统调用 shutdown  
+     唤醒任务task_wakeup,把当前任务加入到run queue中.随后检测 runnable tasks 时，就会处理该任务
+	 
+	 3.4 http请求的处理
+	 haproxy.c 
+	 -> run_poll_loop 
+		-> process_runnable_tasks,查找当前待处理的任务所有tasks,然后调用task->process（大多时候就是 process_session）进行处理
+			-> process_session
+			
+     process_session主要完成以下功能
+	 
+	 处理连接需要关闭的情形,分支resync_stream_interface
+     处理请求,分支 resync_request (read event)
+	       根据 s->req->analysers 的标记位,调用不同的analyser进行处理请求
+	       ana_list & AN_REQ_WAIT_HTTP:http_wait_for_request
+	       ana_list & AN_REQ_HTTP_PROCESS_FE:http_process_req_common
+	       ana_list & AN_REQ_SWITCHING_RULES:process_switching_rules
+     处理应答,分支resync_response (write event)
+	       根据 s->rep->analysers 的标记位,调用不同的 analyser 进行处理请求
+	       ana_list & AN_RES_WAIT_HTTP:http_wait_for_response
+	       ana_list & AN_RES_HTTP_PROCESS_BE:http_process_res_common
+     处理 forward buffer 的相关动作
+     关闭 req 和 rep 的 buffer,调用pool2_free释放 session 及其申请的相关内存,包括读写缓冲 (read 0 bytes)
+	       pool_free2(pool2_buffer, s->req);
+	       pool_free2(pool2_buffer, s->rep);
+	       pool_free2(pool2_session, s);
+     task从运行任务队列中清除,调用pool2_free释放task申请的内存:task_delete(); task_free();
