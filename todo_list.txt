@@ -1,0 +1,10 @@
+---ongoing
+1. route optimization
+2. statistic lockless
+3. skb checksum optimization
+4. gro support
+5. toa-ipv6 support
+
+
+---todo
+1. performance optimization
